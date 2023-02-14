@@ -142,18 +142,21 @@ def get_excelsheet_df(wb, page_name):
 
     return df_excel
 
-def update_excelsheet(wb, page_name, df):
+def update_excelsheet(wb, page_name, df, row_number=0):
     sheet = wb.sheets[page_name]
 
-    search_value = "Thread/Comment Body"
+    if row_number == 0:
+        search_value = "Thread/Comment Body"
 
-    used_range = sheet.used_range
+        used_range = sheet.used_range
 
-    for cell in used_range:
-        if cell.value == search_value:
-            start_row = cell.row + 1
-            break
-        
+        for cell in used_range:
+            if cell.value == search_value:
+                start_row = cell.row + 1
+                break
+    else:
+        start_row = row_number
+
     for row in range(df.shape[0]):
         for col in range(df.shape[1]):
             if (df.iloc[row, col] == 'IGNORE') or (df.iloc[row, col] == 'None'):
@@ -222,10 +225,23 @@ def generate_singleValue(wb, page_name, cell, value):
     sheet = wb.sheets[page_name]
     sheet[cell].value = value
 
+def get_lastRow(idx, workbook, col=1):
+
+    ws = workbook.sheets[idx]
+
+    lwr_r_cell = ws.cells.last_cell
+    lwr_row = lwr_r_cell.row
+    lwr_cell = ws.range((lwr_row, col))
+
+    if lwr_cell.value is None:
+        lwr_cell = lwr_cell.end('up')
+
+    return lwr_cell.row
+
 if __name__ == "__main__":
     # ======================================================================
     # Get submission by the provided thread ID.
-    threadIDs = ["zkveqe", "twwyc5"]
+    threadIDs = ["zkveqe"]
 
     # Will stop scraping once the post being processed is older than this timestamp.
     dt = datetime(2022, 10, 17, 5, 46)
@@ -237,7 +253,15 @@ if __name__ == "__main__":
     update_votes = False
 
     # True = Update all the comments/replies that are past the stated data time
-    update_commets = True
+    update_commets = False
+
+    # True = Append a dataframe to the bottom 
+    # USE THIS SETTING WITH CAUTION as this will generate repeated data depending on what value you select for "dt"
+    # --------------------
+    append_comments = True
+    # --------------------
+    # This will just directly copy paste any new comments past the "dt" specified date, therefore it will make copies if you select a date to far back
+    # Note: I'm not sure when you would want to use this, but I figured I'd leave it here as an option 
 
     # True = Generate and save wordcloud
     generate_wordcloud = False
@@ -297,10 +321,10 @@ if __name__ == "__main__":
 
     current_datetime = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 
-    if (update_commets == True) and (update_votes == True):
-        print("Error you have entered update_comments and update_votes as both 'True'. Please only enter one as 'True' and try again.")
+    if (update_commets == True and update_votes == True) or (update_commets == True and append_comments == True) or (update_votes == True and append_comments == True):
+        print("Error you have entered 2 or more 'True's for either update_comments, update_votes and append_commends as 'True'. Please only enter one as 'True' and try again.")
 
-    elif (update_commets == False) and (update_votes == False):
+    elif (update_commets == False) and (update_votes == False) and (append_comments == False):
         print("Error you have entered update_comments and update_votes as both 'False'. So nothing happened, please only enter one as 'True' and try again.")
 
     elif update_commets == True:
@@ -345,6 +369,25 @@ if __name__ == "__main__":
             print("URLs have been turned into hyperlinks")
         else:
             print("There is nothing in the spreadsheet to update, perhaps update the comments first")
+
+    elif append_comments == True:
+        if len(df_comments) > 0:
+            row_print = get_lastRow(page_name, wb) + 1
+            print("Will start printing at row " + str(row_print))
+
+            current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cell_datetime = get_cellPosition(wb=wb, page_name=page_name, search_value="Last Appending")
+            generate_singleValue(wb=wb, page_name=page_name, cell=cell_datetime, value=current_datetime)
+
+            update_excelsheet(wb=wb, page_name=page_name, df=df_comments, row_number=row_print)
+            
+            cell_hyperlink = get_cellPosition(wb=wb, page_name=page_name, search_value="URL")
+            generate_hyperlink(wb=wb, page_name=page_name, cell_string=cell_hyperlink)
+            print("URLs have been turned into hyperlinks")
+            print("Finished appending {} new comments".format(str(len(df_comments))))
+        else:
+            print("There was nothing to append")
+
 
     if generate_wordcloud == True:
         wordcloud = WordCloud(stopwords=STOPWORDS, background_color="black").generate(' '.join(df_comments['Body']))
