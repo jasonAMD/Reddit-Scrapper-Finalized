@@ -201,19 +201,37 @@ def get_thread_comments(reddit, dt, threadID):
 
     return filtered_comments
 
+def get_cellPosition(wb, page_name, search_value):
+    sheet = wb.sheets[page_name]
+
+    used_range = sheet.used_range
+    
+    try:
+        for cell in used_range:
+            if cell.value == search_value:
+                row_number = cell.row + 1
+                column_number = cell.column 
+                column_letter = chr(ord('A') + column_number - 1)
+                break
+    except:
+        print("You have entered a value that does not exist in the workbook please enter a valid value to locate")
+    
+    return str(column_letter) + str(row_number)
+
+def generate_singleValue(wb, page_name, cell, value):
+    sheet = wb.sheets[page_name]
+    sheet[cell].value = value
+
 if __name__ == "__main__":
     # ======================================================================
     # Get submission by the provided thread ID.
     threadIDs = ["zkveqe", "twwyc5"]
 
     # Will stop scraping once the post being processed is older than this timestamp.
-    dt = datetime(2022, 1, 17, 5, 46)
+    dt = datetime(2022, 10, 17, 5, 46)
 
     # Sheet Page name to append to
     page_name = "22.12.1 12-13-12xx"
-
-    # Insert the starting cell to hyperlink
-    cell_hyperlink = 'G24'
 
     # True = Update all the up and downvotes for each of the comments listed
     update_votes = False
@@ -281,8 +299,10 @@ if __name__ == "__main__":
 
     if (update_commets == True) and (update_votes == True):
         print("Error you have entered update_comments and update_votes as both 'True'. Please only enter one as 'True' and try again.")
+
     elif (update_commets == False) and (update_votes == False):
         print("Error you have entered update_comments and update_votes as both 'False'. So nothing happened, please only enter one as 'True' and try again.")
+
     elif update_commets == True:
         print("Setting to Update Comments was selected")
         if len(df_excel) != 0:
@@ -293,10 +313,18 @@ if __name__ == "__main__":
                 mapping.get((User, Posted), (asic, Applications, Category, Ticket_ID, Notes)) for User, Posted, asic, Applications, Category, Ticket_ID, Notes
                 in zip(df_comments['User'], df_comments['UTC Time Posted'], df_comments['ASIC'], df_comments['Applications'], 
                        df_comments['Category'], df_comments['Ticket ID'], df_comments['Notes/Action Items'])]
+            
         update_excelsheet(wb=wb, page_name=page_name, df=df_comments)
+
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cell_datetime = get_cellPosition(wb=wb, page_name=page_name, search_value="Last Comment Scrape")
+        generate_singleValue(wb=wb, page_name=page_name, cell=cell_datetime, value=current_datetime)
         print("The excel workbook was updated with new comments")
+
+        cell_hyperlink = get_cellPosition(wb=wb, page_name=page_name, search_value="URL")
         generate_hyperlink(wb=wb, page_name=page_name, cell_string=cell_hyperlink)
         print("URLs have been turned into hyperlinks")
+
     elif update_votes == True:
         print("Setting to Update Votes was selected")
         if len(df_excel != 0):
@@ -306,7 +334,13 @@ if __name__ == "__main__":
                                                 in zip(df_excel['User'], df_excel['UTC Time Posted'], df_excel['Upvotes'], df_excel['Downvotes'])]
 
             update_excelsheet(wb=wb, page_name=page_name, df=df_excel)
-            print("Updated the excel sheet information")
+
+            current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cell_datetime = get_cellPosition(wb=wb, page_name=page_name, search_value="Last Vote Update")
+            generate_singleValue(wb=wb, page_name=page_name, cell=cell_datetime, value=current_datetime)
+            print("Updated the excel sheet voting information")
+
+            cell_hyperlink = get_cellPosition(wb=wb, page_name=page_name, search_value="URL")
             generate_hyperlink(wb=wb, page_name=page_name, cell_string=cell_hyperlink)
             print("URLs have been turned into hyperlinks")
         else:
