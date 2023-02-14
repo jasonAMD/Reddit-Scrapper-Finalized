@@ -12,7 +12,6 @@ import torch
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
 
-
 class RedditComment:
     def __init__(self, thread, body, link, user, timeStamp, upVotes, downVotes, commentDepth):
         self.thread = thread
@@ -109,13 +108,13 @@ def get_comment_info(thread_name, comment, depth) -> RedditComment:
                          comment.downs,
                          depth)
 
-def preOrderTraversal(root_comment) -> list:
+def preOrderTraversal(root_comment, threadID) -> list:
     list_output = list()
 
     def dfs(node_comment, depth):
         if not node_comment:
             return
-        list_output.append({"CommentItem": node_comment, "Depth": depth})
+        list_output.append({"CommentItem": node_comment, "Depth": depth, "ThreadID": threadID})
         for reply in node_comment.replies:
             dfs(reply, depth=depth+1)
 
@@ -186,25 +185,29 @@ def get_thread_comments(reddit, dt, threadID):
             print("Comment is older than {0}, skipping comment.".format(
                 dt.strftime(r"%m/%d/%Y, %H:%M")))
         else:
-            list_comments.append(preOrderTraversal(comment))
+            list_comments.append(preOrderTraversal(comment, threadID))
+
+    list_comments = [item for sublist in list_comments for item in sublist]
 
     # Removing any duplicates
     seen = []
     filtered_comments = []
     for comment in list_comments:
-        if str(comment["CommentItem"].id) not in seen:
+        if comment["CommentItem"].id not in seen:
             filtered_comments.append(comment)
             seen.append(comment["CommentItem"].id)
+
+    print("Done making the filtered comment list for {}".format(threadID))
 
     return filtered_comments
 
 if __name__ == "__main__":
     # ======================================================================
     # Get submission by the provided thread ID.
-    threadIDs = ["zkveqe"]
+    threadIDs = ["zkveqe", "twwyc5"]
 
     # Will stop scraping once the post being processed is older than this timestamp.
-    dt = datetime(2022, 11, 17, 5, 46)
+    dt = datetime(2022, 1, 17, 5, 46)
 
     # Sheet Page name to append to
     page_name = "22.12.1 12-13-12xx"
@@ -238,18 +241,20 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained('cardiffnlp/twitter-roberta-base-sentiment-latest')
     model = AutoModelForSequenceClassification.from_pretrained('cardiffnlp/twitter-roberta-base-sentiment-latest')
 
-    print("Done initalizing the pretrained model")
+    print("\n ======================")
+    print("\nDone initalizing the pretrained model")
 
     list_comments = list()
     for threadID in threadIDs:
+        print("Now Searching Data for the threadID: {}".format(threadID))
         list_comments.append(get_thread_comments(reddit=reddit, dt=dt, threadID=threadID))
-
+    
     list_comments = [item for sublist in list_comments for item in sublist]
 
     # Turned that list of praw api comments into custom reddit comment objects
     processed_comments = list()
     for comment in list_comments:
-        comment_info = get_comment_info(threadID, comment['CommentItem'], comment['Depth'])
+        comment_info = get_comment_info(comment['ThreadID'], comment['CommentItem'], comment['Depth'])
         get_bertScore(comment_info)
         get_textblobScore(comment_info)
         get_finalSentiment(comment_info)
@@ -269,7 +274,7 @@ if __name__ == "__main__":
 
     # -----------------------------------
 
-    wb = xw.Book('C:\\Users\\jasokhuu\\Desktop\\Python\\Reddit Scraper\\this_is_final\\2022 Vanguard Reddit Defect Tracker.xlsx')
+    wb = xw.Book('C:\\Users\\jasokhuu\\Desktop\\GitHub Code\\RedditScraper\\2022 Vanguard Reddit Defect Tracker.xlsx')
     df_excel = get_excelsheet_df(wb=wb, page_name=page_name)
 
     current_datetime = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
