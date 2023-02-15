@@ -12,6 +12,8 @@ import torch
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
 from xlwings.constants import DeleteShiftDirection
+import sys
+import os
 
 class RedditComment:
     def __init__(self, thread, body, link, user, timeStamp, upVotes, downVotes, commentDepth):
@@ -234,15 +236,41 @@ def generate_singleValue(wb, page_name, cell, value):
     sheet = wb.sheets[page_name]
     sheet[cell].value = value
 
+def get_directoryExcelString(file_name="NONE") -> None:
+    current_path = os.getcwd()
+
+    current_path = list(current_path)
+    dest_indexs = list()
+
+    for index, char in enumerate(current_path):
+        if char == '\\':
+            dest_indexs.append(index)
+
+    for index, value in enumerate(dest_indexs):
+        dest_indexs[index] = value + index
+
+    for index in dest_indexs:
+        current_path.insert(index, "\\")
+
+    if file_name == "NONE":
+        dest_direc = ''.join(current_path)
+    else:
+        dest_direc = ''.join(current_path) + "\\\\" + file_name
+
+    return dest_direc
+
 if __name__ == "__main__":
     # ======================================================================
     # Get submission by the provided thread ID.
-    threadIDs = ["tmwyx5"] # "zkveqe",  
+    threadIDs = ["zkveqe"] # "zkveqe",  
 
     # Will stop scraping once the post being processed is older than this timestamp.
     dt = datetime(2022, 1, 17, 5, 46)
 
-    # Sheet Page name to append to
+    # Insert the name of the excel file
+    name_excelFile = "2022 Vanguard Reddit Defect Tracker.xlsx"
+
+    # Sheet Page name to work on
     page_name = "22.12.1 12-13-12xx"
 
     # True = Update all the up and downvotes for each of the comments listed
@@ -313,7 +341,8 @@ if __name__ == "__main__":
 
     # -----------------------------------
 
-    wb = xw.Book('C:\\Users\\jasokhuu\\Desktop\\GitHub Code\\RedditScraper\\2022 Vanguard Reddit Defect Tracker.xlsx')
+    excelFileDirec = get_directoryExcelString(name_excelFile)
+    wb = xw.Book(excelFileDirec)
     df_excel = get_excelsheet_df(wb=wb, page_name=page_name)
 
     if (update_commets == True and update_votes == True) or (update_commets == True and append_comments == True) or (update_votes == True and append_comments == True):
