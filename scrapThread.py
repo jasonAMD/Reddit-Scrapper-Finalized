@@ -237,10 +237,10 @@ def generate_singleValue(wb, page_name, cell, value):
 if __name__ == "__main__":
     # ======================================================================
     # Get submission by the provided thread ID.
-    threadIDs = ["tmwyx5", "zkveqe"]
+    threadIDs = ["tmwyx5"] # "zkveqe",  
 
     # Will stop scraping once the post being processed is older than this timestamp.
-    dt = datetime(2021, 1, 17, 5, 46)
+    dt = datetime(2022, 1, 17, 5, 46)
 
     # Sheet Page name to append to
     page_name = "22.12.1 12-13-12xx"
@@ -249,17 +249,17 @@ if __name__ == "__main__":
     update_votes = False
  
     # True = Update all the comments/replies that are past the stated data time
-    update_commets = True
+    update_commets = False
     # Note: This will not preserve anything that is not past the stated "dt" 
 
     # True = Append a all values that are not in the excel sheet that are within the "dt" time frame to the bottom of the sheet
-    append_comments = False
+    append_comments = True
 
     # True = Generate and save wordcloud
-    generate_wordcloud = True
+    generate_wordcloud = False
 
     # True = Generate and save sentiment graph 
-    generate_sentimentGraph = True
+    generate_sentimentGraph = False
     # ======================================================================
 
     # Connect to Reddit API using registered app code.
@@ -286,25 +286,30 @@ if __name__ == "__main__":
     list_comments = [item for sublist in list_comments for item in sublist]
 
     # Turned that list of praw api comments into custom reddit comment objects
-    processed_comments = list()
-    for comment in list_comments:
-        comment_info = get_comment_info(comment['ThreadID'], comment['CommentItem'], comment['Depth'])
-        get_bertScore(comment_info)
-        get_textblobScore(comment_info)
-        get_finalSentiment(comment_info)
-        processed_comments.append(comment_info)
-    print("Finished retrieving all of the initial reddit data from the forum site")
+    if (len(list_comments) > 0):
+        processed_comments = list()
+        for comment in list_comments:
+            comment_info = get_comment_info(comment['ThreadID'], comment['CommentItem'], comment['Depth'])
+            get_bertScore(comment_info)
+            get_textblobScore(comment_info)
+            get_finalSentiment(comment_info)
+            processed_comments.append(comment_info)
+        print("Finished retrieving all of the initial reddit data from the forum site")
 
-    # I know this name is confusing but it's just turning the reddit commment objects into mini datafarmes in the list
-    df_form_comments = list()
-    for comment in processed_comments:
-        df_form_comments.append(comment.to_dict())
+        # I know this name is confusing but it's just turning the reddit commment objects into mini datafarmes in the list
+        df_form_comments = list()
+        for comment in processed_comments:
+            df_form_comments.append(comment.to_dict())
 
-    # The final dataframe result
-    df_comments = pd.DataFrame(df_form_comments)
-    for column in df_comments.columns:
-        df_comments[column] = df_comments[column].astype('str')
-    print("Have completed processing the information into a dataframe")
+        # The final dataframe result
+        df_comments = pd.DataFrame(df_form_comments)
+        for column in df_comments.columns:
+            df_comments[column] = df_comments[column].astype('str')
+        print("Have completed processing the information into a dataframe")
+    else:
+        print("=====" * 5)
+        print("ERROR! You have collected 0 comments, please insert a different thread name or change your dt minimumn time")
+        exit()
 
     # -----------------------------------
 
@@ -420,7 +425,7 @@ if __name__ == "__main__":
         values = list(sentiment_scores.values())
 
         plt.bar(range(len(sentiment_scores)), values, tick_label=names)
-        
+
         current_datetime = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
         plt.savefig("SentimentGraph({}).png".format(current_datetime))
         plt.show()
