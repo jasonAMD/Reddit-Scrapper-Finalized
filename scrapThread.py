@@ -11,6 +11,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
+from xlwings.constants import DeleteShiftDirection
 
 class RedditComment:
     def __init__(self, thread, body, link, user, timeStamp, upVotes, downVotes, commentDepth):
@@ -35,10 +36,10 @@ class RedditComment:
         return message
 
     def to_dict(self):
-        return {'Body': self.body, 'ASIC': 'IGNORE', 'Applications': 'IGNORE', 'Category': 'IGNORE', 'Ticket ID': 'IGNORE',
-                'Notes/Action Items': 'IGNORE', 'Link': self.link, 'Thread': self.thread, 'User': self.user, 'UTC Time Posted': self.timeStamp,
+        return {'Thread/Comment Body': self.body, 'ASIC': 'IGNORE', 'Applications': 'IGNORE', 'Category': 'IGNORE', 'Ticket ID': 'IGNORE',
+                'Notes/Action Items': 'IGNORE', 'URL': self.link, 'ThreadID': self.thread, 'User': self.user, 'UTC Time Posted': self.timeStamp,
                 'Upvotes': self.upVotes, 'Downvotes': self.downVotes, 'Comment Depth': self.commentDepth,
-                'NTLK/TextBlob Sentiment': self.textblob, 'roBERTa Sentiment': self.bert, 'Average Sentiment': self.sentiment,
+                'NLTK/TextBlob Sentiment': self.textblob, 'roBERTa Sentiment': self.bert, 'Average Sentiment': self.sentiment,
                 'Accuracy Sentiment Score': self.accuracy
                 }
 
@@ -204,70 +205,61 @@ def get_thread_comments(reddit, dt, threadID):
 
     return filtered_comments
 
-def get_cellPosition(wb, page_name, search_value):
+def get_cellPosition(wb, page_name, search_value, row_value_only = False):
     sheet = wb.sheets[page_name]
 
     used_range = sheet.used_range
     
     try:
-        for cell in used_range:
-            if cell.value == search_value:
-                row_number = cell.row + 1
-                column_number = cell.column 
-                column_letter = chr(ord('A') + column_number - 1)
-                break
+        if row_value_only == False:
+            for cell in used_range:
+                if cell.value == search_value:
+                    row_number = cell.row + 1
+                    column_number = cell.column 
+                    column_letter = chr(ord('A') + column_number - 1)
+                    return_value = str(column_letter) + str(row_number)
+                    break
+        else:
+            for cell in used_range:
+                if cell.value == search_value:
+                    row_number = cell.row # This is just what row the cell your looking for is located at
+                    return_value = int(row_number)
+                    break
     except:
         print("You have entered a value that does not exist in the workbook please enter a valid value to locate")
     
-    return str(column_letter) + str(row_number)
+    return return_value
 
 def generate_singleValue(wb, page_name, cell, value):
     sheet = wb.sheets[page_name]
     sheet[cell].value = value
 
-def get_lastRow(idx, workbook, col=1):
-
-    ws = workbook.sheets[idx]
-
-    lwr_r_cell = ws.cells.last_cell
-    lwr_row = lwr_r_cell.row
-    lwr_cell = ws.range((lwr_row, col))
-
-    if lwr_cell.value is None:
-        lwr_cell = lwr_cell.end('up')
-
-    return lwr_cell.row
-
 if __name__ == "__main__":
     # ======================================================================
     # Get submission by the provided thread ID.
-    threadIDs = ["zkveqe"]
+    threadIDs = ["tmwyx5", "zkveqe"]
 
     # Will stop scraping once the post being processed is older than this timestamp.
-    dt = datetime(2022, 10, 17, 5, 46)
+    dt = datetime(2021, 1, 17, 5, 46)
 
     # Sheet Page name to append to
     page_name = "22.12.1 12-13-12xx"
 
     # True = Update all the up and downvotes for each of the comments listed
     update_votes = False
-
+ 
     # True = Update all the comments/replies that are past the stated data time
-    update_commets = False
+    update_commets = True
+    # Note: This will not preserve anything that is not past the stated "dt" 
 
-    # True = Append a dataframe to the bottom 
-    # USE THIS SETTING WITH CAUTION as this will generate repeated data depending on what value you select for "dt"
-    # --------------------
-    append_comments = True
-    # --------------------
-    # This will just directly copy paste any new comments past the "dt" specified date, therefore it will make copies if you select a date to far back
-    # Note: I'm not sure when you would want to use this, but I figured I'd leave it here as an option 
+    # True = Append a all values that are not in the excel sheet that are within the "dt" time frame to the bottom of the sheet
+    append_comments = False
 
     # True = Generate and save wordcloud
-    generate_wordcloud = False
+    generate_wordcloud = True
 
     # True = Generate and save sentiment graph 
-    generate_sentimentGraph = False
+    generate_sentimentGraph = True
     # ======================================================================
 
     # Connect to Reddit API using registered app code.
@@ -319,8 +311,6 @@ if __name__ == "__main__":
     wb = xw.Book('C:\\Users\\jasokhuu\\Desktop\\GitHub Code\\RedditScraper\\2022 Vanguard Reddit Defect Tracker.xlsx')
     df_excel = get_excelsheet_df(wb=wb, page_name=page_name)
 
-    current_datetime = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-
     if (update_commets == True and update_votes == True) or (update_commets == True and append_comments == True) or (update_votes == True and append_comments == True):
         print("Error you have entered 2 or more 'True's for either update_comments, update_votes and append_commends as 'True'. Please only enter one as 'True' and try again.")
 
@@ -343,6 +333,19 @@ if __name__ == "__main__":
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cell_datetime = get_cellPosition(wb=wb, page_name=page_name, search_value="Last Comment Scrape")
         generate_singleValue(wb=wb, page_name=page_name, cell=cell_datetime, value=current_datetime)
+
+        # Deleting all excess rows 
+        if (len(df_comments) < len(df_excel)):
+            sheet = wb.sheets[page_name]
+            row_header = get_cellPosition(wb=wb, page_name=page_name, search_value="Thread/Comment Body", row_value_only=True)
+
+            row_starting = row_header + len(df_comments) + 1
+            row_ending = row_header + len(df_excel) + 10
+            print("Clearing from row {} to {}".format(row_starting, row_ending))
+
+            string_delete = "{}:{}".format(str(row_starting), str(row_ending))
+            sheet.range(string_delete).api.Delete(DeleteShiftDirection.xlShiftUp) 
+
         print("The excel workbook was updated with new comments")
 
         cell_hyperlink = get_cellPosition(wb=wb, page_name=page_name, search_value="URL")
@@ -371,31 +374,34 @@ if __name__ == "__main__":
             print("There is nothing in the spreadsheet to update, perhaps update the comments first")
 
     elif append_comments == True:
+        print("Setting to append values was selected")
         if len(df_comments) > 0:
-            row_print = get_lastRow(page_name, wb) + 1
-            print("Will start printing at row " + str(row_print))
+
+            df_append = pd.concat([df_excel, df_comments])
+            df_append = df_append.drop_duplicates(subset=['User', 'UTC Time Posted'])
 
             current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             cell_datetime = get_cellPosition(wb=wb, page_name=page_name, search_value="Last Appending")
             generate_singleValue(wb=wb, page_name=page_name, cell=cell_datetime, value=current_datetime)
 
-            update_excelsheet(wb=wb, page_name=page_name, df=df_comments, row_number=row_print)
+            update_excelsheet(wb=wb, page_name=page_name, df=df_append)
+            print("Finished appending {} new rows of data".format(str(len(df_append) - len(df_excel))))
             
             cell_hyperlink = get_cellPosition(wb=wb, page_name=page_name, search_value="URL")
             generate_hyperlink(wb=wb, page_name=page_name, cell_string=cell_hyperlink)
             print("URLs have been turned into hyperlinks")
-            print("Finished appending {} new comments".format(str(len(df_comments))))
         else:
             print("There was nothing to append")
 
 
     if generate_wordcloud == True:
-        wordcloud = WordCloud(stopwords=STOPWORDS, background_color="black").generate(' '.join(df_comments['Body']))
+        wordcloud = WordCloud(stopwords=STOPWORDS, background_color="black").generate(' '.join(df_comments["Thread/Comment Body"]))
 
         plt.imshow(wordcloud, interpolation='bilinear')
         plt.axis("off")
         plt.show()
 
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
         wordcloud.to_file("WordCloud({}).png".format(current_datetime))
     
     if generate_sentimentGraph == True:
@@ -414,7 +420,8 @@ if __name__ == "__main__":
         values = list(sentiment_scores.values())
 
         plt.bar(range(len(sentiment_scores)), values, tick_label=names)
-
+        
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
         plt.savefig("SentimentGraph({}).png".format(current_datetime))
         plt.show()
 
