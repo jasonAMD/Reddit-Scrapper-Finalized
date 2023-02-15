@@ -2,12 +2,22 @@
 
 ## Set up
 Run the following command in the terminal window:
+
+    # ======================================================================
     pip install -r requirements.txt
+    # ======================================================================
 
 If this gives an error then try:
-    pip install -r "{}""
-Where {} is equal to the directory that you have placed the folder in so for example this may look like:
-    pip install -r "C:\Users\jasokhuu\Desktop\GitHub Code\RedditScraper\2022 Vanguard Reddit Defect Tracker"
+
+    # ======================================================================
+    pip install -r "{}"
+    # ======================================================================
+
+Where {} is equal to the directory that you have placed the folder in followed by "requirements.txt" so for example this may look like:
+
+    # ======================================================================
+    pip install -r "C:\Users\jasokhuu\Desktop\GitHub Code\RedditScraper\requirements.txt"
+    # ======================================================================
 
 ## All interaction with this files should be doing within lines 238 to 291
 
